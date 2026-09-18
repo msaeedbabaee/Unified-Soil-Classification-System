@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import streamlit as st
 
 
@@ -11,19 +13,7 @@ def classify_soil(
     organic_content: float = 0.0,
     ll_oven_dried: float = None,
 ) -> str:
-    """Classifies soil based on the Unified Soil Classification System (USCS / ASTM D2487).
-
-    Parameters:
-    - passing_200: Percentage passing No. 200 sieve (0.075 mm)
-    - retained_4_of_coarse: Percentage of coarse fraction retained on No. 4
-    sieve (4.75 mm)
-    - cu: Coefficient of Uniformity (D60 / D10)
-    - cc: Coefficient of Curvature ((D30)^2 / (D10 * D60))
-    - ll: Liquid Limit
-    - pi: Plasticity Index
-    - organic_content: Organic matter percentage
-    - ll_oven_dried: Liquid limit after oven drying (for organic soil test)
-    """
+    """Classifies soil based on the Unified Soil Classification System (USCS / ASTM D2487)."""
 
     # 1. Highly organic soils check (Peat)
     if organic_content > 75:
@@ -52,12 +42,10 @@ def classify_soil(
             if is_organic:
                 return "OL (Organic Silt or Organic Clay)"
             else:
-                if pi > 7 and pi >= a_line:
-                    return "CL (Lean Clay)"
-                elif pi < 4 or pi < a_line:
-                    return "ML (Silt)"
-                elif 4 <= pi <= 7 and pi >= a_line:
+                if 4 <= pi <= 7 and pi >= a_line:
                     return "CL-ML (Silty Clay)"
+                elif pi > 7 and pi >= a_line:
+                    return "CL (Lean Clay)"
                 else:
                     return "ML (Silt)"
         else:  # LL >= 50
@@ -79,13 +67,12 @@ def classify_soil(
             if ll is None or pi is None:
                 return "M"
             a_line_val = 0.73 * (ll - 20)
-            if pi > 7 and pi >= a_line_val:
-                return "C"  # Clayey
-            elif pi < 4 or pi < a_line_val:
-                return "M"  # Silty
-            elif 4 <= pi <= 7 and pi >= a_line_val:
+            if 4 <= pi <= 7 and pi >= a_line_val:
                 return "C-M"
-            return "M"
+            elif pi > 7 and pi >= a_line_val:
+                return "C"  # Clayey
+            else:
+                return "M"  # Silty
 
         # Graduation criteria evaluation
         if is_gravel:
@@ -119,19 +106,74 @@ def classify_soil(
             return f"{grad}-{prefix}{f_type}"
 
 
+def plot_plasticity_chart(ll_input: float, pi_input: float):
+    """Generates and displays the USCS Plasticity Chart with the input point."""
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ll_vals = np.linspace(0, 100, 500)
+    a_line_vals = 0.73 * (ll_vals - 20)
+    u_line_vals = 0.9 * (ll_vals - 8)
+
+    # Plot lines
+    ax.plot(
+        ll_vals,
+        a_line_vals,
+        "b-",
+        label="A-Line: PI = 0.73*(LL - 20)",
+        linewidth=1.5,
+    )
+    ax.plot(
+        ll_vals,
+        u_line_vals,
+        "r--",
+        label="U-Line: PI = 0.9*(LL - 8)",
+        linewidth=1,
+    )
+
+    # Boundary lines
+    ax.axvline(x=50, color="gray", linestyle=":", label="LL = 50 Line")
+    ax.axhline(y=4, color="orange", linestyle="--", alpha=0.6)
+    ax.axhline(y=7, color="orange", linestyle="--", alpha=0.6)
+
+    # Shaded CL-ML region
+    ax.fill_between([7, 25.5], [4, 4], [7, 7], color="yellow", alpha=0.3, label="CL-ML Zone")
+
+    # User point plot
+    if ll_input is not None and pi_input is not None:
+        ax.plot(
+            ll_input,
+            pi_input,
+            "ro",
+            markersize=8,
+            label=f"Input Soil (LL={ll_input}, PI={pi_input})",
+        )
+
+    # Formatting
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, 60)
+    ax.set_xlabel("Liquid Limit (LL)", fontsize=10)
+    ax.set_ylabel("Plasticity Index (PI)", fontsize=10)
+    ax.set_title("USCS Plasticity Chart (ASTM D2487)", fontsize=12, fontweight="bold")
+    ax.grid(True, which="both", linestyle="--", alpha=0.5)
+    ax.legend(loc="upper left", fontsize=8)
+
+    st.pyplot(fig)
+
+
 # --- Streamlit User Interface ---
 st.set_page_config(
-    page_title="USCS Soil Classifier", page_icon="🪵", layout="centered"
+    page_title="Auto-Soil Classifier", page_icon="🪵", layout="centered"
 )
 
-st.title("🌱 USCS Soil Classification Tool")
+st.title("🌱 USCS Auto-Soil Classifier")
 st.write(
-    "Classify soil based on Unified Soil Classification System (ASTM D2487)."
+    "ابزار هوشمند طبقه‌بندی خودکار خاک بر اساس استاندارد **ASTM D2487 (USCS)**"
 )
 
-st.subheader("1. Grain Size Distribution")
+# 1. Grain Size Distribution
+st.subheader("1. منحنی دانه‌بندی (Grain Size Distribution)")
 passing_200 = st.number_input(
-    "Percentage passing No. 200 sieve (%)",
+    "درصد عبوری از الک شماره ۲۰۰ (%)",
     min_value=0.0,
     max_value=100.0,
     value=20.0,
@@ -139,45 +181,73 @@ passing_200 = st.number_input(
 
 if passing_200 < 50:
     retained_4_of_coarse = st.number_input(
-        "Percentage of coarse fraction retained on No. 4 sieve (%)",
+        "درصد مانده روی الک شماره ۴ نسبت به بخش درشت‌دانه (%)",
         min_value=0.0,
         max_value=100.0,
         value=60.0,
     )
-    cu = st.number_input(
-        "Coefficient of Uniformity (Cu)", min_value=0.0, value=5.0
+
+    calc_mode = st.radio(
+        "نحوه ورود اطلاعات ضرایب دانه‌بندی:",
+        ("محاسبه خودکار از روی D10, D30, D60", "ورود مستقیم Cu و Cc"),
     )
-    cc = st.number_input("Coefficient of Curvature (Cc)", min_value=0.0, value=2.0)
+
+    if calc_mode == "محاسبه خودکار از روی D10, D30, D60":
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            d10 = st.number_input("D10 (mm)", min_value=0.0001, value=0.1)
+        with col2:
+            d30 = st.number_input("D30 (mm)", min_value=0.0001, value=0.5)
+        with col3:
+            d60 = st.number_input("D60 (mm)", min_value=0.0001, value=1.2)
+
+        cu = d60 / d10 if d10 > 0 else 0.0
+        cc = (d30**2) / (d10 * d60) if (d10 * d60) > 0 else 0.0
+
+        st.info(f"**ضرایب محاسبه شده:** $C_u = {cu:.2f}$ | $C_c = {cc:.2f}$")
+    else:
+        cu = st.number_input("ضریب یکنواختی (Cu)", min_value=0.0, value=5.0)
+        cc = st.number_input("ضریب انحنا (Cc)", min_value=0.0, value=2.0)
 else:
     retained_4_of_coarse = 0.0
     cu = None
     cc = None
 
-st.subheader("2. Atterberg Limits")
-has_atterberg = st.checkbox("Include Atterberg Limits data", value=True)
+# 2. Atterberg Limits
+st.subheader("2. حدود اتربرگ (Atterberg Limits)")
+has_atterberg = st.checkbox("دارای داده‌های حدود اتربرگ", value=True)
 
 if has_atterberg:
-    ll = st.number_input("Liquid Limit (LL)", min_value=0.0, value=35.0)
-    pi = st.number_input("Plasticity Index (PI)", min_value=0.0, value=12.0)
+    col_ll, col_pi = st.columns(2)
+    with col_ll:
+        ll = st.number_input("حد روانی (LL)", min_value=0.0, value=35.0)
+    with col_pi:
+        pi = st.number_input("نشانه خمیرایی (PI)", min_value=0.0, value=12.0)
 else:
     ll = None
     pi = None
 
-st.subheader("3. Organic Properties (Optional)")
-is_organic_test = st.checkbox("Organic soil test / High organic content")
+# 3. Organic Properties
+st.subheader("3. بررسی خاصیت آلی (Organic Test)")
+is_organic_test = st.checkbox("انجام آزمایش خاک آلی / مقدار مواد آلی بالا")
 if is_organic_test:
-    organic_content = st.number_input(
-        "Organic Content (%)", min_value=0.0, max_value=100.0, value=0.0
-    )
-    ll_oven_dried = st.number_input(
-        "Oven-dried Liquid Limit (LL)", min_value=0.0, value=0.0
-    )
+    col_org1, col_org2 = st.columns(2)
+    with col_org1:
+        organic_content = st.number_input(
+            "درصد مواد آلی (%)", min_value=0.0, max_value=100.0, value=0.0
+        )
+    with col_org2:
+        ll_oven_dried = st.number_input(
+            "حد روانی پس از خشک شدن در خشک‌کن (LL Oven-Dried)",
+            min_value=0.0,
+            value=0.0,
+        )
 else:
     organic_content = 0.0
     ll_oven_dried = None
 
-# Classification execution
-if st.button("Classify Soil", type="primary"):
+# Classification Execution
+if st.button("طبقه‌بندی خاک", type="primary"):
     result = classify_soil(
         passing_200=passing_200,
         retained_4_of_coarse=retained_4_of_coarse,
@@ -189,4 +259,9 @@ if st.button("Classify Soil", type="primary"):
         ll_oven_dried=ll_oven_dried,
     )
 
-    st.success(f"**Classification Result:** {result}")
+    st.success(f"### **نتیجه طبقه‌بندی USCS:** `{result}`")
+
+    # Display Plasticity Chart if LL and PI are provided
+    if ll is not None and pi is not None:
+        st.subheader("📊 نمودار خمیرایی (Plasticity Chart)")
+        plot_plasticity_chart(ll_input=ll, pi_input=pi)
