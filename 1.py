@@ -136,7 +136,9 @@ def plot_plasticity_chart(ll_input: float, pi_input: float):
     ax.axhline(y=7, color="orange", linestyle="--", alpha=0.6)
 
     # Shaded CL-ML region
-    ax.fill_between([7, 25.5], [4, 4], [7, 7], color="yellow", alpha=0.3, label="CL-ML Zone")
+    ax.fill_between(
+        [7, 25.5], [4, 4], [7, 7], color="yellow", alpha=0.3, label="CL-ML Zone"
+    )
 
     # User point plot
     if ll_input is not None and pi_input is not None:
@@ -153,7 +155,9 @@ def plot_plasticity_chart(ll_input: float, pi_input: float):
     ax.set_ylim(0, 60)
     ax.set_xlabel("Liquid Limit (LL)", fontsize=10)
     ax.set_ylabel("Plasticity Index (PI)", fontsize=10)
-    ax.set_title("USCS Plasticity Chart (ASTM D2487)", fontsize=12, fontweight="bold")
+    ax.set_title(
+        "USCS Plasticity Chart (ASTM D2487)", fontsize=12, fontweight="bold"
+    )
     ax.grid(True, which="both", linestyle="--", alpha=0.5)
     ax.legend(loc="upper left", fontsize=8)
 
@@ -167,13 +171,13 @@ st.set_page_config(
 
 st.title("🌱 USCS Auto-Soil Classifier")
 st.write(
-    "ابزار هوشمند طبقه‌بندی خودکار خاک بر اساس استاندارد **ASTM D2487 (USCS)**"
+    "Automated soil classification tool based on **ASTM D2487 (USCS)** standard."
 )
 
 # 1. Grain Size Distribution
-st.subheader("1. منحنی دانه‌بندی (Grain Size Distribution)")
+st.subheader("1. Grain Size Distribution")
 passing_200 = st.number_input(
-    "درصد عبوری از الک شماره ۲۰۰ (%)",
+    "Percentage passing No. 200 sieve (%)",
     min_value=0.0,
     max_value=100.0,
     value=20.0,
@@ -181,18 +185,21 @@ passing_200 = st.number_input(
 
 if passing_200 < 50:
     retained_4_of_coarse = st.number_input(
-        "درصد مانده روی الک شماره ۴ نسبت به بخش درشت‌دانه (%)",
+        "Percentage of coarse fraction retained on No. 4 sieve (%)",
         min_value=0.0,
         max_value=100.0,
         value=60.0,
     )
 
     calc_mode = st.radio(
-        "نحوه ورود اطلاعات ضرایب دانه‌بندی:",
-        ("محاسبه خودکار از روی D10, D30, D60", "ورود مستقیم Cu و Cc"),
+        "Graduation Coefficients Input Method:",
+        (
+            "Auto-calculate from D10, D30, D60",
+            "Enter Cu and Cc directly",
+        ),
     )
 
-    if calc_mode == "محاسبه خودکار از روی D10, D30, D60":
+    if calc_mode == "Auto-calculate from D10, D30, D60":
         col1, col2, col3 = st.columns(3)
         with col1:
             d10 = st.number_input("D10 (mm)", min_value=0.0001, value=0.1)
@@ -204,41 +211,45 @@ if passing_200 < 50:
         cu = d60 / d10 if d10 > 0 else 0.0
         cc = (d30**2) / (d10 * d60) if (d10 * d60) > 0 else 0.0
 
-        st.info(f"**ضرایب محاسبه شده:** $C_u = {cu:.2f}$ | $C_c = {cc:.2f}$")
+        st.info(f"**Calculated Coefficients:** $C_u = {cu:.2f}$ | $C_c = {cc:.2f}$")
     else:
-        cu = st.number_input("ضریب یکنواختی (Cu)", min_value=0.0, value=5.0)
-        cc = st.number_input("ضریب انحنا (Cc)", min_value=0.0, value=2.0)
+        cu = st.number_input(
+            "Coefficient of Uniformity (Cu)", min_value=0.0, value=5.0
+        )
+        cc = st.number_input(
+            "Coefficient of Curvature (Cc)", min_value=0.0, value=2.0
+        )
 else:
     retained_4_of_coarse = 0.0
     cu = None
     cc = None
 
 # 2. Atterberg Limits
-st.subheader("2. حدود اتربرگ (Atterberg Limits)")
-has_atterberg = st.checkbox("دارای داده‌های حدود اتربرگ", value=True)
+st.subheader("2. Atterberg Limits")
+has_atterberg = st.checkbox("Include Atterberg Limits data", value=True)
 
 if has_atterberg:
     col_ll, col_pi = st.columns(2)
     with col_ll:
-        ll = st.number_input("حد روانی (LL)", min_value=0.0, value=35.0)
+        ll = st.number_input("Liquid Limit (LL)", min_value=0.0, value=35.0)
     with col_pi:
-        pi = st.number_input("نشانه خمیرایی (PI)", min_value=0.0, value=12.0)
+        pi = st.number_input("Plasticity Index (PI)", min_value=0.0, value=12.0)
 else:
     ll = None
     pi = None
 
 # 3. Organic Properties
-st.subheader("3. بررسی خاصیت آلی (Organic Test)")
-is_organic_test = st.checkbox("انجام آزمایش خاک آلی / مقدار مواد آلی بالا")
+st.subheader("3. Organic Soil Test")
+is_organic_test = st.checkbox("Organic soil test / High organic content")
 if is_organic_test:
     col_org1, col_org2 = st.columns(2)
     with col_org1:
         organic_content = st.number_input(
-            "درصد مواد آلی (%)", min_value=0.0, max_value=100.0, value=0.0
+            "Organic Content (%)", min_value=0.0, max_value=100.0, value=0.0
         )
     with col_org2:
         ll_oven_dried = st.number_input(
-            "حد روانی پس از خشک شدن در خشک‌کن (LL Oven-Dried)",
+            "Oven-Dried Liquid Limit (LL)",
             min_value=0.0,
             value=0.0,
         )
@@ -247,7 +258,7 @@ else:
     ll_oven_dried = None
 
 # Classification Execution
-if st.button("طبقه‌بندی خاک", type="primary"):
+if st.button("Classify Soil", type="primary"):
     result = classify_soil(
         passing_200=passing_200,
         retained_4_of_coarse=retained_4_of_coarse,
@@ -259,9 +270,9 @@ if st.button("طبقه‌بندی خاک", type="primary"):
         ll_oven_dried=ll_oven_dried,
     )
 
-    st.success(f"### **نتیجه طبقه‌بندی USCS:** `{result}`")
+    st.success(f"### **USCS Classification Result:** `{result}`")
 
     # Display Plasticity Chart if LL and PI are provided
     if ll is not None and pi is not None:
-        st.subheader("📊 نمودار خمیرایی (Plasticity Chart)")
+        st.subheader("📊 Plasticity Chart")
         plot_plasticity_chart(ll_input=ll, pi_input=pi)
